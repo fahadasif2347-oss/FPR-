@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise ERP & POS System</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SweetAlert2 for Alerts/Modals -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        secondary: '#475569',
+                        dark: '#1e293b',
+                        light: '#f8fafc',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .sidebar-item:hover, .sidebar-item.active { background-color: #334155; border-left: 4px solid #3b82f6; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); }
+        .hide { display: none !important; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Loader */
+        #loader { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(255,255,255,0.9); z-index: 9999; display: flex; justify-content: center; align-items: center; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-slate-800 h-screen overflow-hidden flex bg-slate-50">
+
+    <!-- Global Loader -->
+    <div id="loader" class="hide">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+            <div class="text-center mb-8">
+                <i class="fa-solid fa-boxes-stacked text-5xl text-blue-600 mb-3"></i>
+                <h1 class="text-2xl font-bold text-slate-800">ERP <span class="text-blue-600">Pro</span></h1>
+                <p class="text-slate-500 text-sm mt-1">Sign in to your workspace</p>
+            </div>
+            <form id="login-form" onsubmit="App.Auth.login(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                    <input type="text" id="login-username" class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" required value="admin">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                    <input type="password" id="login-password" class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" required value="admin">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition shadow-lg shadow-blue-500/30">
+                    Sign In <i class="fa-solid fa-arrow-right ml-2"></i>
+                </button>
+            </form>
+            <div class="mt-4 text-center text-xs text-slate-500">
+                Demo Accounts:<br>
+                Admin: admin / admin<br>
+                POS User: pos / pos
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application Layout -->
+    <div id="app-layout" class="flex w-full h-full hide">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 bg-dark text-slate-300 flex flex-col h-full shadow-xl z-20 flex-shrink-0 transition-all duration-300" id="sidebar">
+            <div class="p-5 flex items-center gap-3 border-b border-slate-700 bg-slate-900">
+                <i class="fa-solid fa-boxes-stacked text-2xl text-blue-500"></i>
+                <span class="text-xl font-bold text-white tracking-wide">ERP <span class="text-blue-500">Pro</span></span>
+            </div>
+            <div class="flex-1 overflow-y-auto py-4 custom-scrollbar" id="sidebar-menu">
+                <!-- Menu items injected via JS based on role -->
+            </div>
+            <div class="p-4 border-t border-slate-700 bg-slate-900 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold" id="user-avatar">A</div>
+                <div class="flex-1 overflow-hidden">
+                    <p class="text-sm font-medium text-white truncate" id="current-user-name">Admin User</p>
+                    <p class="text-xs text-slate-400 capitalize" id="current-user-role">Administrator</p>
+                </div>
+                <button onclick="App.Auth.logout()" class="text-slate-400 hover:text-red-400 transition" title="Logout">
+                    <i class="fa-solid fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 relative">
+            <!-- Topbar -->
+            <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10 flex-shrink-0">
+                <div class="flex items-center gap-4">
+                    <button onclick="document.getElementById('sidebar').classList.toggle('hidden')" class="lg:hidden text-slate-500 hover:text-blue-600">
+                        <i class="fa-solid fa-bars text-xl"></i>
+                    </button>
+                    <h2 id="page-title" class="text-xl font-semibold text-slate-800">Dashboard</h2>
+                </div>
+                <div class="flex items-center gap-5">
+                    <div class="relative">
+                        <i class="fa-regular fa-bell text-slate-500 text-xl cursor-pointer hover:text-blue-600 transition"></i>
+                        <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[10px] flex items-center justify-center font-bold" id="alert-badge">0</span>
+                    </div>
+                    <div id="clock" class="text-sm font-medium text-slate-600 hidden sm:block"></div>
+                </div>
+            </header>
+
+            <!-- Dynamic Views Container -->
+            <div id="views-container" class="flex-1 overflow-y-auto p-6 relative custom-scrollbar">
+                <!-- Views will be injected here -->
+            </div>
+        </main>
+    </div>
+
+    <script>
+        /************************************************************************
+         * CORE ARCHITECTURE: APP NAMESPACE
+         ************************************************************************/
+        const App = {
+            Config: {
+                currency: 'Rs ',
+                appName: 'ERP Pro'
+            },
+            State: {
+                currentUser: null,
+                currentView: 'dashboard'
+            },
+            Utils: {
+                formatMoney: (num) => App.Config.currency + parseFloat(num || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                generateId: () => Math.random().toString(36).substr(2, 9),
+                formatDate: (dateString) => new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+                formatDateTime: (dateString) => new Date(dateString).toLocaleString('en-GB'),
+                showLoader: () => document.getElementById('loader').classList.remove('hide'),
+                hideLoader: () => document.getElementById('loader').classList.add('hide'),
+                notify: (msg, type = 'success') => {
+                    Swal.fire({
+                        toast: true, position: 'top-end', showConfirmButton: false, timer: 3000,
+                        icon: type, title: msg
+                    });
+                }
+            }
+        };
+
+        /************************************************************************
+         * MODULE: DATABASE (IndexedDB/LocalStorage Wrapper)
+         ************************************************************************/
+        App.DB = class {
+            static init() {
+                if (!localStorage.getItem('erp_initialized')) {
+                    this.seedData();
+                }
+            }
+
+            static get(table) {
+                return JSON.parse(localStorage.getItem(`erp_${table}`) || '[]');
+            }
+
+            static set(table, data) {
+                localStorage.setItem(`erp_${table}`, JSON.stringify(data));
+            }
+
+            static insert(table, record) {
+                const data = this.get(table);
+                record.id = record.id || App.Utils.generateId();
+                record.createdAt = new Date().toISOString();
+                data.push(record);
+                this.set(table, data);
+                return record;
+            }
+
+            static update(table, id, updates) {
+                const data = this.get(table);
+                const index = data.findIndex(item => item.id === id);
+                if (index > -1) {
+                    data[index] = { ...data[index], ...updates, updatedAt: new Date().toISOString() };
+                    this.set(table, data);
+                    return data[index];
+                }
+                return null;
+            }
+
+            static delete(table, id) {
+                const data = this.get(table);
+                this.set(table, data.filter(item => item.id !== id));
+            }
+
+            // --- Complex Queries ---
+            static getStock(productId) {
+                const ledger = this.get('inventory_ledger');
+                return ledger.filter(l => l.productId === productId).reduce((sum, item) => sum + Number(item.qty), 0);
+            }
+
+            static getProductCost(productId) {
+                const product = this.get('products').find(p => p.id === productId);
+                if (!product) return 0;
+                
+                if (product.type === 'Finished Product' || product.type === 'Semi-Finished Product') {
+                    // Calculate from BOM
+                    const recipe = this.get('recipes').find(r => r.finishedProductId === productId);
+                    if (recipe) {
+                        let totalMatCost = 0;
+                        recipe.materials.forEach(mat => {
+                            const matCost = this.getProductCost(mat.productId);
+                            totalMatCost += (matCost * mat.qty);
+                        });
+                        return totalMatCost / recipe.outputQty;
+                    }
+                }
+                return Number(product.purchasePrice) || 0;
+            }
+
+            static seedData() {
+                // 1. Users
+                this.set('users', [
+                    { id: 'u1', username: 'admin', password: 'admin', role: 'Admin', name: 'System Admin' },
+                    { id: 'u2', username: 'pos', password: 'pos', role: 'Sales', name: 'Sales Counter' }
+                ]);
+
+                // 2. Products
+                this.set('products', [
+                    { id: 'p1', name: 'Maida', sku: 'RM-001', barcode: '10001', type: 'Raw Material', unit: 'KG', purchasePrice: 100, salePrice: 0, minStock: 20 },
+                    { id: 'p2', name: 'Sugar', sku: 'RM-002', barcode: '10002', type: 'Raw Material', unit: 'KG', purchasePrice: 150, salePrice: 0, minStock: 10 },
+                    { id: 'p3', name: 'Butter', sku: 'RM-003', barcode: '10003', type: 'Raw Material', unit: 'KG', purchasePrice: 500, salePrice: 0, minStock: 5 },
+                    { id: 'p4', name: 'Bige', sku: 'FG-001', barcode: '20001', type: 'Finished Product', unit: 'Servings', purchasePrice: 0, salePrice: 250, minStock: 50 },
+                    { id: 'p5', name: 'Chocolate Cake', sku: 'FG-002', barcode: '20002', type: 'Finished Product', unit: 'PCS', purchasePrice: 0, salePrice: 1200, minStock: 5 }
+                ]);
+
+                // 3. Inventory Ledger (Opening Stock)
+                const now = new Date().toISOString();
+                this.set('inventory_ledger', [
+                    { id: 'i1', date: now, productId: 'p1', qty: 100, type: 'IN', refType: 'Opening', note: 'Opening Stock' },
+                    { id: 'i2', date: now, productId: 'p2', qty: 50, type: 'IN', refType: 'Opening', note: 'Opening Stock' },
+                    { id: 'i3', date: now, productId: 'p3', qty: 20, type: 'IN', refType: 'Opening', note: 'Opening Stock' },
+                    { id: 'i4', date: now, productId: 'p4', qty: 100, type: 'IN', refType: 'Opening', note: 'Opening Stock' }
+                ]);
+
+                // 4. Recipes (BOM)
+                this.set('recipes', [
+                    { 
+                        id: 'r1', name: 'Standard Bige Batch', finishedProductId: 'p4', outputQty: 50, 
+                        materials: [
+                            { productId: 'p1', qty: 2 }, // 2KG Maida
+                            { productId: 'p2', qty: 1 }, // 1KG Sugar
+                            { productId: 'p3', qty: 0.5 } // 0.5KG Butter
+                        ] 
+                    }
+                ]);
+
+                // 5. Customers & Vendors
+                this.set('customers', [
+                    { id: 'c1', name: 'Walk-in Customer', phone: '0000', type: 'Retail' },
+                    { id: 'c2', name: 'Ali Traders', phone: '03001234567', type: 'Wholesale' }
+                ]);
+                this.set('vendors', [
+                    { id: 'v1', name: 'National Mills', phone: '042111', type: 'Supplier' }
+                ]);
+
+                // Init tables
+                ['sales', 'purchases', 'production', 'customer_ledger', 'vendor_ledger', 'expenses', 'accounting'].forEach(table => {
+                    if(!localStorage.getItem(`erp_${table}`)) this.set(table, []);
+                });
+
+                localStorage.setItem('erp_initialized', 'true');
+            }
+        };
+
+        /************************************************************************
+         * MODULE: AUTHENTICATION
+         ************************************************************************/
+        App.Auth = class {
+            static login(e) {
+                e.preventDefault();
+                const u = document.getElementById('login-username').value;
+                const p = document.getElementById('login-password').value;
+                
+                const users = App.DB.get('users');
+                const user = users.find(x => x.username === u && x.password === p);
+                
+                if (user) {
+                    App.State.currentUser = user;
+                    sessionStorage.setItem('active_user', JSON.stringify(user));
+                    
+                    document.getElementById('login-screen').classList.add('hide');
+                    document.getElementById('app-layout').classList.remove('hide');
+                    
+                    document.getElementById('current-user-name').innerText = user.name;
+                    document.getElementById('current-user-role').innerText = user.role;
+                    document.getElementById('user-avatar').innerText = user.name.charAt(0).toUpperCase();
+                    
+                    App.UI.buildSidebar();
+                    App.Router.navigate('dashboard');
+                    App.Utils.notify('Login successful!');
+                } else {
+                    Swal.fire('Error', 'Invalid credentials', 'error');
+                }
+            }
+
+            static logout() {
+                sessionStorage.removeItem('active_user');
+                location.reload();
+            }
+
+            static checkSession() {
+                const u = sessionStorage.getItem('active_user');
+                if (u) {
+                    App.State.currentUser = JSON.parse(u);
+                    document.getElementById('login-screen').classList.add('hide');
+                    document.getElementById('app-layout').classList.remove('hide');
+                    
+                    document.getElementById('current-user-name').innerText = App.State.currentUser.name;
+                    document.getElementById('current-user-role').innerText = App.State.currentUser.role;
+                    document.getElementById('user-avatar').innerText = App.State.currentUser.name.charAt(0).toUpperCase();
+                    
+                    App.UI.buildSidebar();
+                    App.Router.navigate('dashboard');
+                }
+            }
+        };
+
+        /************************************************************************
+         * MODULE: ROUTER & UI RENDERER
+         ************************************************************************/
+        App.Router = class {
+            static routes = {
+                'dashboard': { title: 'Dashboard', icon: 'fa-chart-pie', render: () => App.Views.Dashboard.render() },
+                'pos': { title: 'POS / Sales', icon: 'fa-cash-register', render: () => App.Views.POS.render() },
+                'products': { title: 'Products', icon: 'fa-box', render: () => App.Views.Products.render() },
+                'inventory': { title: 'Inventory', icon: 'fa-warehouse', render: () => App.Views.Inventory.render() },
+                'recipes': { title: 'Recipes (BOM)', icon: 'fa-clipboard-list', render: () => App.Views.Recipes.render() },
+                'production': { title: 'Production', icon: 'fa-industry', render: () => App.Views.Production.render() },
+                'purchases': { title: 'Purchases', icon: 'fa-shopping-cart', render: () => App.Views.Purchases.render() },
+                'customers': { title: 'Customers', icon: 'fa-users', render: () => App.Views.Customers.render() },
+                'reports': { title: 'Reports', icon: 'fa-chart-line', render: () => App.Views.Reports.render() },
+            };
+
+            static navigate(route) {
+                if(!this.routes[route]) return;
+                
+                // RBAC Check (Simplified)
+                const role = App.State.currentUser.role;
+                if(role === 'Sales' && !['dashboard', 'pos', 'customers'].includes(route)) {
+                    App.Utils.notify('Access Denied', 'error'); return;
+                }
+
+                App.State.currentView = route;
+                document.getElementById('page-title').innerText = this.routes[route].title;
+                
+                // Update sidebar UI
+                document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+                const navItem = document.getElementById(`nav-${route}`);
+                if(navItem) navItem.classList.add('active');
+
+                // Render view
+                const container = document.getElementById('views-container');
+                container.innerHTML = this.routes[route].render();
+                
+                // Call post-render scripts if they exist on the view object
+                if (App.Views[route.charAt(0).toUpperCase() + route.slice(1)]?.onMount) {
+                    App.Views[route.charAt(0).toUpperCase() + route.slice(1)].onMount();
+                }
+            }
+        };
+
+        App.UI = class {
+            static buildSidebar() {
+                const role = App.State.currentUser.role;
+                let html = '';
+                
+                for (const [key, val] of Object.entries(App.Router.routes)) {
+                    // Role filtering
+                    if(role === 'Sales' && !['dashboard', 'pos', 'customers'].includes(key)) continue;
+                    
+                    html += `
+                        <a href="#" id="nav-${key}" onclick="App.Router.navigate('${key}')" class="sidebar-item flex items-center gap-3 px-5 py-3 text-slate-300 hover:text-white transition cursor-pointer">
+                            <i class="fa-solid ${val.icon} w-5 text-center"></i>
+                            <span class="font-medium">${val.title}</span>
+                        </a>
+                    `;
+                }
+                document.getElementById('sidebar-menu').innerHTML = html;
+            }
+            
+            static renderTable(headers, rows, emptyMsg = "No records found.") {
+                if (rows.length === 0) {
+                    return `<div class="p-8 text-center text-slate-500 bg-white rounded-lg border border-slate-200">${emptyMsg}</div>`;
+                }
+                let html = `
+                <div class="overflow-x-auto bg-white rounded-lg shadow-sm border border-slate-200">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm font-semibold">
+                                ${headers.map(h => `<th class="p-4">${h}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm">
+                            ${rows.map(r => `<tr class="hover:bg-slate-50 transition">${r.map(c => `<td class="p-4">${c}</td>`).join('')}</tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+                return html;
+            }
+        };
+
+        /************************************************************************
+         * MODULE: VIEWS & BUSINESS LOGIC
+         ************************************************************************/
+        App.Views = {};
+
+        App.Views.Dashboard = {
+            render: () => {
+                const sales = App.DB.get('sales');
+                const products = App.DB.get('products');
+                const today = new Date().toISOString().split('T')[0];
+                
+                const todaySales = sales.filter(s => s.date.startsWith(today)).reduce((sum, s) => sum + s.total, 0);
+                const totalProducts = products.length;
+                
+                // Find low stock
+                let lowStockCount = 0;
+                products.forEach(p => {
+                    if (App.DB.getStock(p.id) <= p.minStock) lowStockCount++;
+                });
+
+                return `
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4 border-l-4 border-l-blue-500">
+                            <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xl"><i class="fa-solid fa-cart-shopping"></i></div>
+                            <div>
+                                <p class="text-sm text-slate-500 font-medium">Today's Sales</p>
+                                <h3 class="text-2xl font-bold text-slate-800">${App.Config.currency}${todaySales.toLocaleString()}</h3>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4 border-l-4 border-l-green-500">
+                            <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-xl"><i class="fa-solid fa-box"></i></div>
+                            <div>
+                                <p class="text-sm text-slate-500 font-medium">Total Products</p>
+                                <h3 class="text-2xl font-bold text-slate-800">${totalProducts}</h3>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4 border-l-4 border-l-orange-500">
+                            <div class="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 text-xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <div>
+                                <p class="text-sm text-slate-500 font-medium">Low Stock Items</p>
+                                <h3 class="text-2xl font-bold text-slate-800">${lowStockCount}</h3>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4 border-l-4 border-l-purple-500">
+                            <div class="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-xl"><i class="fa-solid fa-users"></i></div>
+                            <div>
+                                <p class="text-sm text-slate-500 font-medium">Total Customers</p>
+                                <h3 class="text-2xl font-bold text-slate-800">${App.DB.get('customers').length}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <h3 class="text-lg font-semibold mb-4">Recent Sales</h3>
+                            ${App.UI.renderTable(
+                                ['ID', 'Date', 'Amount', 'Status'],
+                                sales.slice(-5).reverse().map(s => [
+                                    s.id.toUpperCase(), App.Utils.formatDateTime(s.date), App.Utils.formatMoney(s.total), 
+                                    `<span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Paid</span>`
+                                ])
+                            )}
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <h3 class="text-lg font-semibold mb-4">Stock Alerts</h3>
+                            <div class="space-y-3">
+                                ${products.filter(p => App.DB.getStock(p.id) <= p.minStock).map(p => `
+                                    <div class="flex justify-between items-center p-3 bg-red-50 text-red-700 rounded border border-red-100">
+                                        <div class="flex items-center gap-3"><i class="fa-solid fa-circle-exclamation"></i> <span class="font-medium">${p.name}</span></div>
+                                        <span class="text-sm">Stock: ${App.DB.getStock(p.id)} ${p.unit} (Min: ${p.minStock})</span>
+                                    </div>
+                                `).join('') || '<p class="text-slate-500">No low stock alerts.</p>'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        };
+
+        App.Views.Products = {
+            render: () => {
+                const products = App.DB.get('products');
+                const headers = ['SKU / Barcode', 'Name', 'Type', 'Cost', 'Price', 'Actions'];
+                const rows = products.map(p => [
+                    `<div><span class="font-semibold">${p.sku}</span><br><span class="text-xs text-slate-500"><i class="fa-solid fa-barcode"></i> ${p.barcode}</span></div>`,
+                    `<div class="font-medium">${p.name}</div><div class="text-xs text-slate-500">${p.unit}</div>`,
+                    `<span class="px-2 py-1 rounded text-xs ${p.type === 'Raw Material' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}">${p.type}</span>`,
+                    App.Utils.formatMoney(App.DB.getProductCost(p.id)),
+                    App.Utils.formatMoney(p.salePrice),
+                    `<button class="text-blue-600 hover:text-blue-800 mr-3" onclick="App.Views.Products.edit('${p.id}')"><i class="fa-solid fa-edit"></i></button>
+                     <button class="text-red-600 hover:text-red-800" onclick="App.Views.Products.delete('${p.id}')"><i class="fa-solid fa-trash"></i></button>`
+                ]);
+
+                return `
+                    <div class="flex justify-between items-center mb-6">
+                        <div class="relative w-72">
+                            <i class="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i>
+                            <input type="text" placeholder="Search products..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <button onclick="App.Views.Products.add()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm">
+                            <i class="fa-solid fa-plus mr-2"></i> Add Product
+                        </button>
+                    </div>
+                    ${App.UI.renderTable(headers, rows)}
+                `;
+            },
+            
+            add: () => {
+                Swal.fire({
+                    title: 'Add New Product',
+                    html: `
+                        <div class="text-left space-y-4 text-sm mt-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="block text-slate-700 font-medium mb-1">Product Name *</label><input type="text" id="p_name" class="w-full p-2 border rounded outline-none focus:border-blue-500"></div>
+                                <div><label class="block text-slate-700 font-medium mb-1">Type</label>
+                                    <select id="p_type" class="w-full p-2 border rounded outline-none focus:border-blue-500">
+                                        <option>Finished Product</option><option>Raw Material</option><option>Semi-Finished Product</option>
+                                    </select>
+                                </div>
+                                <div><label class="block text-slate-700 font-medium mb-1">SKU</label><input type="text" id="p_sku" class="w-full p-2 border rounded outline-none"></div>
+                                <div><label class="block text-slate-700 font-medium mb-1">Barcode</label><input type="text" id="p_barcode" class="w-full p-2 border rounded outline-none"></div>
+                                <div><label class="block text-slate-700 font-medium mb-1">Purchase Cost</label><input type="number" id="p_cost" class="w-full p-2 border rounded outline-none"></div>
+                                <div><label class="block text-slate-700 font-medium mb-1">Sale Price</label><input type="number" id="p_price" class="w-full p-2 border rounded outline-none"></div>
+                                <div><label class="block text-slate-700 font-medium mb-1">Unit</label><input type="text" id="p_unit" placeholder="KG, PCS, etc." class="w-full p-2 border rounded outline-none"></div>
+                                <div><label class="block text-slate-700 font-medium mb-1">Min Stock Alert</label><input type="number" id="p_min" class="w-full p-2 border rounded outline-none"></div>
+                            </div>
+                        </div>
+                    `,
+                    width: '600px', showCancelButton: true, confirmButtonText: 'Save Product',
+                    preConfirm: () => {
+                        const name = document.getElementById('p_name').value;
+                        if(!name) { Swal.showValidationMessage('Name is required'); return false; }
+                        return {
+                            name, type: document.getElementById('p_type').value,
+                            sku: document.getElementById('p_sku').value, barcode: document.getElementById('p_barcode').value,
+                            purchasePrice: Number(document.getElementById('p_cost').value), salePrice: Number(document.getElementById('p_price').value),
+                            unit: document.getElementById('p_unit').value, minStock: Number(document.getElementById('p_min').value)
+                        };
+                    }
+                }).then(res => {
+                    if(res.isConfirmed) {
+                        App.DB.insert('products', res.value);
+                        App.Utils.notify('Product saved successfully');
+                        App.Router.navigate('products');
+                    }
+                });
+            },
+            
+            delete: (id) => {
+                Swal.fire({ title: 'Delete Product?', text: "This action cannot be undone.", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33' })
+                .then(res => {
+                    if(res.isConfirmed) {
+                        App.DB.delete('products', id);
+                        App.Router.navigate('products');
+                        App.Utils.notify('Product deleted');
+                    }
+                });
+            }
+        };
+
+        App.Views.Inventory = {
+            render: () => {
+                const products = App.DB.get('products');
+                const headers = ['Product', 'Type', 'Current Stock', 'Value', 'Status'];
+                
+                const rows = products.map(p => {
+                    const stock = App.DB.getStock(p.id);
+                    const cost = App.DB.getProductCost(p.id);
+                    const value = stock * cost;
+                    let status = `<span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">In Stock</span>`;
+                    if (stock <= 0) status = `<span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">Out of Stock</span>`;
+                    else if (stock <= p.minStock) status = `<span class="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">Low Stock</span>`;
+
+                    return [
+                        `<div class="font-medium text-slate-800">${p.name} <span class="text-xs text-slate-500 font-normal ml-2">(${p.sku})</span></div>`,
+                        p.type,
+                        `<span class="font-bold text-lg ${stock < 0 ? 'text-red-600' : ''}">${stock}</span> <span class="text-xs text-slate-500">${p.unit}</span>`,
+                        App.Utils.formatMoney(value),
+                        status
+                    ];
+                });
+
+                return `
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-semibold text-slate-800">Live Inventory Valuation</h2>
+                        <button onclick="App.Views.Inventory.adjustment()" class="bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition shadow-sm">
+                            <i class="fa-solid fa-sliders mr-2"></i> Stock Adjustment
+                        </button>
+                    </div>
+                    <div class="mb-6 grid grid-cols-3 gap-4">
+                        <div class="bg-blue-50 border border-blue-100 p-4 rounded-lg">
+                            <div class="text-sm text-blue-600 mb-1">Total Inventory Value</div>
+                            <div class="text-2xl font-bold text-blue-900">${App.Utils.formatMoney(products.reduce((s,p) => s + (App.DB.getStock(p.id)*App.DB.getProductCost(p.id)), 0))}</div>
+                        </div>
+                    </div>
+                    ${App.UI.renderTable(headers, rows)}
+                `;
+            },
+            adjustment: () => {
+                const prods = App.DB.get('products');
+                Swal.fire({
+                    title: 'Stock Adjustment',
+                    html: `
+                        <div class="text-left space-y-4 text-sm mt-4">
+                            <div><label class="block font-medium mb-1">Product</label>
+                                <select id="adj_prod" class="w-full p-2 border rounded">${prods.map(p => `<option value="${p.id}">${p.name} (Cur: ${App.DB.getStock(p.id)})</option>`).join('')}</select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="block font-medium mb-1">Type</label>
+                                    <select id="adj_type" class="w-full p-2 border rounded"><option value="IN">Stock IN (+)</option><option value="OUT">Stock OUT (-)</option></select>
+                                </div>
+                                <div><label class="block font-medium mb-1">Quantity</label><input type="number" id="adj_qty" class="w-full p-2 border rounded" min="1"></div>
+                            </div>
+                            <div><label class="block font-medium mb-1">Reason / Note</label><input type="text" id="adj_note" class="w-full p-2 border rounded" placeholder="Damage, Expiry, Found, etc."></div>
+                        </div>
+                    `,
+                    showCancelButton: true, confirmButtonText: 'Submit Adjustment',
+                    preConfirm: () => {
+                        const qty = Number(document.getElementById('adj_qty').value);
+                        if(qty <= 0) { Swal.showValidationMessage('Valid quantity required'); return false; }
+                        return {
+                            productId: document.getElementById('adj_prod').value,
+                            type: document.getElementById('adj_type').value,
+                            qty: qty, note: document.getElementById('adj_note').value
+                        };
+                    }
+                }).then(res => {
+                    if(res.isConfirmed) {
+                        const val = res.value;
+                        const actualQty = val.type === 'IN' ? val.qty : -val.qty;
+                        App.DB.insert('inventory_ledger', {
+                            date: new Date().toISOString(),
+                            productId: val.productId, type: val.type, qty: actualQty,
+                            refType: 'Adjustment', note: val.note
+                        });
+                        App.Utils.notify('Stock adjusted successfully');
+                        App.Router.navigate('inventory');
+                    }
+                });
+            }
+        };
+
+        App.Views.POS = {
+            cart: [],
+            customer: null,
+            
+            render: () => {
+                return `
+                    <div class="flex h-[calc(100vh-8rem)] gap-6 -m-2">
+                        <!-- POS Left: Product Selection -->
+                        <div class="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div class="p-4 border-b border-slate-200 bg-slate-50 flex gap-4">
+                                <div class="relative flex-1">
+                                    <i class="fa-solid fa-barcode absolute left-3 top-3 text-slate-400"></i>
+                                    <input type="text" id="pos-search" placeholder="Scan Barcode or Search Name..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-lg" onkeyup="App.Views.POS.search(this.value)" autocomplete="off" autofocus>
+                                </div>
+                            </div>
+                            <div class="flex-1 overflow-y-auto p-4 bg-slate-50 custom-scrollbar">
+                                <div id="pos-products-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                    <!-- Dynamic Products -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- POS Right: Cart & Checkout -->
+                        <div class="w-96 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div class="p-4 border-b border-slate-200 bg-slate-800 text-white">
+                                <h3 class="font-semibold text-lg"><i class="fa-solid fa-cart-shopping mr-2"></i> Current Order</h3>
+                            </div>
+                            
+                            <div class="p-3 border-b border-slate-200 bg-slate-50">
+                                <select id="pos-customer" class="w-full p-2 border border-slate-300 rounded text-sm outline-none">
+                                    <option value="">Walk-in Customer</option>
+                                    ${App.DB.get('customers').map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                                </select>
+                            </div>
+
+                            <div class="flex-1 overflow-y-auto p-2 custom-scrollbar" id="pos-cart-items">
+                                <!-- Cart Items -->
+                                <div class="h-full flex flex-col items-center justify-center text-slate-400">
+                                    <i class="fa-solid fa-basket-shopping text-4xl mb-2 text-slate-200"></i>
+                                    <p>Cart is empty</p>
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-50 p-4 border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                                <div class="flex justify-between mb-2 text-slate-600"><span>Subtotal:</span> <span id="pos-subtotal" class="font-medium">${App.Config.currency}0.00</span></div>
+                                <div class="flex justify-between mb-4 text-slate-600"><span>Tax (0%):</span> <span>${App.Config.currency}0.00</span></div>
+                                <div class="flex justify-between items-center mb-6 py-3 border-t border-slate-200">
+                                    <span class="text-lg font-bold text-slate-800">Total:</span> 
+                                    <span id="pos-total" class="text-3xl font-black text-blue-600">${App.Config.currency}0.00</span>
+                                </div>
+                                <button onclick="App.Views.POS.checkout()" class="w-full bg-green-600 text-white font-bold py-4 rounded-lg hover:bg-green-700 transition shadow-lg text-lg flex justify-center items-center gap-2">
+                                    <i class="fa-solid fa-money-bill-wave"></i> PAY NOW
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            onMount: () => {
+                App.Views.POS.cart = [];
+                App.Views.POS.search(''); // Load all initially
+            },
+
+            search: (query) => {
+                const prods = App.DB.get('products').filter(p => p.type !== 'Raw Material'); // Usually only sell FG/Semi
+                const q = query.toLowerCase();
+                const filtered = prods.filter(p => p.name.toLowerCase().includes(q) || p.barcode === q || p.sku.toLowerCase().includes(q));
+                
+                // Exact Barcode Match -> Auto Add
+                if(filtered.length === 1 && filtered[0].barcode === q) {
+                    App.Views.POS.addToCart(filtered[0]);
+                    document.getElementById('pos-search').value = '';
+                    App.Views.POS.search(''); // reset
+                    return;
+                }
+
+                let html = filtered.map(p => {
+                    const stock = App.DB.getStock(p.id);
+                    return `
+                    <div onclick='App.Views.POS.addToCart(${JSON.stringify(p).replace(/'/g, "&apos;")})' class="bg-white border border-slate-200 rounded-lg p-3 cursor-pointer hover:border-blue-500 hover:shadow-md transition group relative overflow-hidden">
+                        <div class="text-xs text-slate-400 mb-1">${p.sku}</div>
+                        <div class="font-bold text-slate-800 leading-tight mb-2 group-hover:text-blue-600">${p.name}</div>
+                        <div class="flex justify-between items-end mt-4">
+                            <span class="font-black text-blue-600 text-lg">${App.Utils.formatMoney(p.salePrice)}</span>
+                            <span class="text-xs font-medium px-2 py-1 rounded bg-slate-100 ${stock<=0?'text-red-500':'text-slate-600'}">${stock} ${p.unit}</span>
+                        </div>
+                    </div>
+                `}).join('');
+                document.getElementById('pos-products-grid').innerHTML = html || '<div class="col-span-full text-center p-8 text-slate-500">No products found</div>';
+            },
+
+            addToCart: (product) => {
+                const existing = App.Views.POS.cart.find(i => i.id === product.id);
+                const stock = App.DB.getStock(product.id);
+                
+                if(existing) {
+                    if (existing.qty >= stock) { App.Utils.notify('Insufficient stock', 'error'); return; }
+                    existing.qty++;
+                } else {
+                    if (stock <= 0) { App.Utils.notify('Out of stock', 'error'); return; }
+                    App.Views.POS.cart.push({ ...product, qty: 1 });
+                }
+                App.Views.POS.updateCartUI();
+            },
+
+            updateQty: (index, delta) => {
+                const item = App.Views.POS.cart[index];
+                const stock = App.DB.getStock(item.id);
+                if (item.qty + delta > stock) { App.Utils.notify('Insufficient stock', 'error'); return; }
+                
+                item.qty += delta;
+                if(item.qty <= 0) App.Views.POS.cart.splice(index, 1);
+                App.Views.POS.updateCartUI();
+            },
+
+            updateCartUI: () => {
+                const container = document.getElementById('pos-cart-items');
+                let total = 0;
+                
+                if(App.Views.POS.cart.length === 0) {
+                    container.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-slate-400"><i class="fa-solid fa-basket-shopping text-4xl mb-2 text-slate-200"></i><p>Cart is empty</p></div>`;
+                    document.getElementById('pos-total').innerText = App.Utils.formatMoney(0);
+                    document.getElementById('pos-subtotal').innerText = App.Utils.formatMoney(0);
+                    return;
+                }
+
+                let html = '<div class="space-y-2">';
+                App.Views.POS.cart.forEach((item, idx) => {
+                    const lineTotal = item.qty * item.salePrice;
+                    total += lineTotal;
+                    html += `
+                        <div class="bg-white p-2 rounded border border-slate-200 flex justify-between items-center shadow-sm">
+                            <div class="flex-1">
+                                <div class="font-medium text-sm text-slate-800 line-clamp-1">${item.name}</div>
+                                <div class="text-xs text-slate-500">${App.Utils.formatMoney(item.salePrice)} x ${item.qty}</div>
+                            </div>
+                            <div class="flex flex-col items-end gap-1">
+                                <div class="font-bold text-sm text-slate-800">${App.Utils.formatMoney(lineTotal)}</div>
+                                <div class="flex items-center gap-2 bg-slate-100 rounded px-1 py-0.5">
+                                    <button onclick="App.Views.POS.updateQty(${idx}, -1)" class="w-6 h-6 rounded bg-white text-slate-600 hover:bg-slate-200 shadow-sm"><i class="fa-solid fa-minus text-xs"></i></button>
+                                    <span class="text-xs font-bold w-4 text-center">${item.qty}</span>
+                                    <button onclick="App.Views.POS.updateQty(${idx}, 1)" class="w-6 h-6 rounded bg-white text-slate-600 hover:bg-slate-200 shadow-sm"><i class="fa-solid fa-plus text-xs"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                container.innerHTML = html;
+                document.getElementById('pos-subtotal').innerText = App.Utils.formatMoney(total);
+                document.getElementById('pos-total').innerText = App.Utils.formatMoney(total);
+            },
+
+            checkout: () => {
+                if(App.Views.POS.cart.length === 0) return App.Utils.notify('Cart is empty', 'error');
+                
+                const total = App.Views.POS.cart.reduce((s,i) => s + (i.qty * i.salePrice), 0);
+                
+                Swal.fire({
+                    title: 'Payment',
+                    html: `
+                        <div class="text-center mb-4">
+                            <div class="text-sm text-slate-500">Total Amount</div>
+                            <div class="text-4xl font-black text-blue-600">${App.Utils.formatMoney(total)}</div>
+                        </div>
+                        <div class="text-left">
+                            <label class="block font-medium mb-1">Amount Paid / Tendered</label>
+                            <input type="number" id="pay_amount" class="w-full p-3 text-xl border rounded outline-none text-center font-bold" value="${total}">
+                        </div>
+                    `,
+                    showCancelButton: true, confirmButtonText: 'Complete Sale', confirmButtonColor: '#16a34a',
+                    preConfirm: () => Number(document.getElementById('pay_amount').value)
+                }).then(res => {
+                    if(res.isConfirmed) {
+                        const paid = res.value;
+                        const customerId = document.getElementById('pos-customer').value;
+                        
+                        // 1. Create Sale Record
+                        const sale = App.DB.insert('sales', {
+                            date: new Date().toISOString(),
+                            customerId: customerId,
+                            total: total, paid: paid,
+                            items: App.Views.POS.cart.map(i => ({ productId: i.id, qty: i.qty, price: i.salePrice, cost: App.DB.getProductCost(i.id) }))
+                        });
+
+                        // 2. Decrease Inventory
+                        App.Views.POS.cart.forEach(item => {
+                            App.DB.insert('inventory_ledger', {
+                                date: new Date().toISOString(), productId: item.id, qty: -item.qty, type: 'OUT', refType: 'Sale', note: `Sale #${sale.id}`
+                            });
+                        });
+
+                        // 3. Accounting / Ledgers (Simplified)
+                        // If Credit (Paid < Total) -> Customer Ledger Debt
+                        if(customerId && paid < total) {
+                            // Implement ledger logic in full system
+                        }
+
+                        // Print Receipt & Reset
+                        App.Views.POS.printReceipt(sale, paid);
+                        App.Views.POS.cart = [];
+                        App.Views.POS.updateCartUI();
+                        App.Utils.notify('Sale completed successfully!');
+                    }
+                });
+            },
+
+            printReceipt: (sale, paid) => {
+                // Simplified Thermal Receipt Print Logic
+                let rcpt = `<div style="font-family: monospace; width: 300px; padding: 10px; margin: 0 auto;">`;
+                rcpt += `<h2 style="text-align:center; margin:0 0 10px 0;">${App.Config.appName}</h2>`;
+                rcpt += `<div style="text-align:center; border-bottom: 1px dashed #000; padding-bottom: 5px; margin-bottom: 10px;">Receipt #${sale.id.toUpperCase()}<br>${App.Utils.formatDateTime(sale.date)}</div>`;
+                rcpt += `<table style="width: 100%; text-align: left; font-size: 12px;">`;
+                sale.items.forEach(i => {
+                    const pName = App.DB.get('products').find(x=>x.id === i.productId)?.name || 'Item';
+                    rcpt += `<tr><td colspan="2">${pName}</td></tr><tr><td>${i.qty} x ${i.price}</td><td style="text-align:right;">${i.qty*i.price}</td></tr>`;
+                });
+                rcpt += `</table>`;
+                rcpt += `<div style="border-top: 1px dashed #000; margin-top: 10px; padding-top: 5px; text-align: right; font-weight: bold; font-size: 14px;">Total: ${App.Utils.formatMoney(sale.total)}</div>`;
+                rcpt += `<div style="text-align: right; font-size: 12px;">Paid: ${App.Utils.formatMoney(paid)}<br>Change: ${App.Utils.formatMoney(paid - sale.total)}</div>`;
+                rcpt += `<div style="text-align:center; margin-top: 20px; font-size: 12px;">Thank you for shopping!</div></div>`;
+                
+                const win = window.open('', '_blank', 'width=400,height=600');
+                win.document.write(rcpt);
+                win.document.close();
+                setTimeout(() => { win.print(); win.close(); }, 500);
+            }
+        };
+
+        App.Views.Recipes = {
+            render: () => {
+                const recipes = App.DB.get('recipes');
+                const products = App.DB.get('products');
+                
+                const rows = recipes.map(r => {
+                    const fg = products.find(p => p.id === r.finishedProductId);
+                    
+                    // Calculate Cost
+                    let cost = 0;
+                    const matList = r.materials.map(m => {
+                        const rm = products.find(p => p.id === m.productId);
+                        const c = App.DB.getProductCost(m.productId);
+                        cost += (c * m.qty);
+                        return `${m.qty} ${rm?.unit} ${rm?.name}`;
+                    }).join(', ');
+                    
+                    const costPerUnit = cost / r.outputQty;
+
+                    return [
+                        `<div class="font-bold text-slate-800">${r.name}</div>`,
+                        `<span class="text-blue-600 font-medium">${fg?.name}</span>`,
+                        `${r.outputQty} ${fg?.unit}`,
+                        `<div class="text-xs text-slate-600 max-w-xs break-words">${matList}</div>`,
+                        `<div class="font-bold text-slate-800">${App.Utils.formatMoney(costPerUnit)} <span class="text-xs font-normal text-slate-500">/ ${fg?.unit}</span></div>`
+                    ];
+                });
+
+                return `
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-semibold text-slate-800">Bill of Materials (BOM)</h2>
+                        <button onclick="App.Views.Recipes.add()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                            <i class="fa-solid fa-plus mr-2"></i> Create Recipe
+                        </button>
+                    </div>
+                    ${App.UI.renderTable(['Recipe Name', 'Finished Product', 'Batch Output', 'Raw Materials', 'Est. Cost/Unit'], rows)}
+                `;
+            },
+            
+            add: () => {
+                // In a full environment, this would be a complex multi-row form.
+                // Keeping it simplified for Single-file constraints via sweetalert.
+                App.Utils.notify('Recipe builder requires a dedicated page in full version. Using predefined logic for demo.', 'info');
+            }
+        };
+
+        App.Views.Production = {
+            render: () => {
+                const prod = App.DB.get('production');
+                const products = App.DB.get('products');
+                const recipes = App.DB.get('recipes');
+                
+                const rows = prod.map(p => {
+                    const r = recipes.find(x => x.id === p.recipeId);
+                    const fg = products.find(x => x.id === r?.finishedProductId);
+                    return [
+                        `<span class="text-xs text-slate-500">${App.Utils.formatDateTime(p.date)}</span>`,
+                        `<span class="font-semibold">${r?.name}</span>`,
+                        `<span class="px-2 py-1 bg-green-100 text-green-700 font-bold rounded">+${p.outputQty} ${fg?.unit}</span>`,
+                        App.Utils.formatMoney(p.cost)
+                    ];
+                });
+
+                return `
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-semibold text-slate-800">Production Log</h2>
+                        <button onclick="App.Views.Production.start()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
+                            <i class="fa-solid fa-industry mr-2"></i> New Production
+                        </button>
+                    </div>
+                    ${App.UI.renderTable(['Date', 'Recipe', 'Output Generated', 'Total Est. Cost'], rows.reverse())}
+                `;
+            },
+
+            start: () => {
+                const recipes = App.DB.get('recipes');
+                Swal.fire({
+                    title: 'Start Production',
+                    html: `
+                        <div class="text-left space-y-4 text-sm mt-4">
+                            <div><label class="block font-medium mb-1">Select Recipe</label>
+                                <select id="prod_recipe" class="w-full p-2 border rounded">${recipes.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}</select>
+                            </div>
+                            <div><label class="block font-medium mb-1">Target Output Quantity (Batches)</label>
+                                <input type="number" id="prod_qty" class="w-full p-2 border rounded" min="1" value="1">
+                                <div class="text-xs text-slate-500 mt-1">Multiplies the BOM raw material requirements.</div>
+                            </div>
+                        </div>
+                    `,
+                    showCancelButton: true, confirmButtonText: 'Calculate & Produce',
+                    preConfirm: () => {
+                        return { recipeId: document.getElementById('prod_recipe').value, batches: Number(document.getElementById('prod_qty').value) };
+                    }
+                }).then(res => {
+                    if(res.isConfirmed) {
+                        App.Views.Production.process(res.value.recipeId, res.value.batches);
+                    }
+                });
+            },
+
+            process: (recipeId, batches) => {
+                const recipe = App.DB.get('recipes').find(r => r.id === recipeId);
+                const products = App.DB.get('products');
+                
+                // 1. Calculate Requirements & Check Stock
+                let canProduce = true;
+                let errorMsg = '';
+                let totalCost = 0;
+                
+                const requirements = recipe.materials.map(m => {
+                    const reqQty = m.qty * batches;
+                    const stock = App.DB.getStock(m.productId);
+                    const cost = App.DB.getProductCost(m.productId);
+                    totalCost += (reqQty * cost);
+                    
+                    if (stock < reqQty) {
+                        const pName = products.find(p=>p.id === m.productId)?.name;
+                        canProduce = false;
+                        errorMsg += `${pName}: Need ${reqQty}, Have ${stock}<br>`;
+                    }
+                    return { productId: m.productId, qty: reqQty };
+                });
+
+                if (!canProduce) {
+                    Swal.fire('Insufficient Raw Materials', errorMsg, 'error');
+                    return;
+                }
+
+                // 2. Execute Production
+                const now = new Date().toISOString();
+                const totalOutput = recipe.outputQty * batches;
+                
+                // Deduct Raw Materials
+                requirements.forEach(req => {
+                    App.DB.insert('inventory_ledger', {
+                        date: now, productId: req.productId, type: 'OUT', qty: -req.qty, refType: 'Production', note: `Used in ${recipe.name}`
+                    });
+                });
+
+                // Add Finished Goods
+                App.DB.insert('inventory_ledger', {
+                    date: now, productId: recipe.finishedProductId, type: 'IN', qty: totalOutput, refType: 'Production', note: `Produced via ${recipe.name}`
+                });
+
+                // Record Production
+                App.DB.insert('production', {
+                    date: now, recipeId: recipeId, outputQty: totalOutput, cost: totalCost
+                });
+
+                Swal.fire('Success', `Successfully produced ${totalOutput} units.`, 'success');
+                App.Router.navigate('production');
+            }
+        };
+
+        App.Views.Reports = {
+            render: () => {
+                const sales = App.DB.get('sales');
+                const purchases = App.DB.get('purchases');
+                const prod = App.DB.get('production');
+                
+                const totalSales = sales.reduce((sum, s) => sum + s.total, 0);
+                const totalPurchases = purchases.reduce((sum, p) => sum + p.total, 0);
+                
+                // Calculate Profit (Gross): Sales Total - Cost of Goods Sold
+                let cogs = 0;
+                sales.forEach(s => {
+                    s.items.forEach(i => { cogs += (i.qty * i.cost); });
+                });
+                const grossProfit = totalSales - cogs;
+
+                return `
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-semibold text-slate-800">Business Reports & Analytics</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <div class="text-sm text-slate-500 mb-1">Total Sales Revenue</div>
+                            <div class="text-2xl font-bold text-blue-600">${App.Utils.formatMoney(totalSales)}</div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <div class="text-sm text-slate-500 mb-1">Cost of Goods Sold (COGS)</div>
+                            <div class="text-2xl font-bold text-red-500">${App.Utils.formatMoney(cogs)}</div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <div class="text-sm text-slate-500 mb-1">Gross Profit</div>
+                            <div class="text-2xl font-bold text-green-600">${App.Utils.formatMoney(grossProfit)}</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <h3 class="text-lg font-semibold mb-4 border-b pb-2">Cash Flow Summary</h3>
+                            <div class="flex justify-between mb-2"><span>Inflow (Sales):</span> <span class="font-medium text-green-600">+${App.Utils.formatMoney(totalSales)}</span></div>
+                            <div class="flex justify-between mb-2"><span>Outflow (Purchases):</span> <span class="font-medium text-red-600">-${App.Utils.formatMoney(totalPurchases)}</span></div>
+                            <div class="flex justify-between font-bold pt-2 border-t mt-2"><span>Net Cash Movement:</span> <span>${App.Utils.formatMoney(totalSales - totalPurchases)}</span></div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center flex flex-col justify-center items-center">
+                            <i class="fa-solid fa-database text-4xl text-blue-200 mb-4"></i>
+                            <h3 class="text-lg font-semibold mb-2">Data Management</h3>
+                            <p class="text-sm text-slate-500 mb-4">Export all ERP data to JSON format for safekeeping or migrations.</p>
+                            <button onclick="App.Views.Reports.backup()" class="bg-slate-800 text-white px-6 py-2 rounded-lg hover:bg-slate-900 transition w-full shadow-sm">
+                                <i class="fa-solid fa-download mr-2"></i> Download Full Backup
+                            </button>
+                        </div>
+                    </div>
+                `;
+            },
+            
+            backup: () => {
+                const data = {};
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if(key.startsWith('erp_')) data[key] = JSON.parse(localStorage.getItem(key));
+                }
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `ERP_Backup_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        };
+
+        App.Views.Purchases = {
+            render: () => {
+                const purchases = App.DB.get('purchases');
+                const vendors = App.DB.get('vendors');
+                const headers = ['Date', 'Vendor', 'Total Amount', 'Status'];
+                
+                const rows = purchases.map(p => {
+                    const v = vendors.find(x => x.id === p.vendorId);
+                    return [
+                        App.Utils.formatDateTime(p.date),
+                        v ? v.name : 'Unknown',
+                        App.Utils.formatMoney(p.total),
+                        `<span class="px-2 py-1 rounded text-xs bg-green-100 text-green-700">Completed</span>`
+                    ];
+                });
+
+                return `
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-semibold text-slate-800">Purchase Orders</h2>
+                        <button onclick="App.Views.Purchases.add()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                            <i class="fa-solid fa-plus mr-2"></i> New Purchase
+                        </button>
+                    </div>
+                    ${App.UI.renderTable(headers, rows.reverse())}
+                `;
+            },
+            add: () => {
+                const products = App.DB.get('products').filter(p => p.type === 'Raw Material' || p.type === 'Finished Product');
+                const vendors = App.DB.get('vendors');
+                
+                Swal.fire({
+                    title: 'New Purchase',
+                    html: `
+                        <div class="text-left space-y-4 text-sm mt-4">
+                            <div><label class="block font-medium mb-1">Vendor</label>
+                                <select id="pur_vendor" class="w-full p-2 border rounded">${vendors.map(v => `<option value="${v.id}">${v.name}</option>`).join('')}</select>
+                            </div>
+                            <div><label class="block font-medium mb-1">Product</label>
+                                <select id="pur_prod" class="w-full p-2 border rounded">${products.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}</select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="block font-medium mb-1">Quantity</label><input type="number" id="pur_qty" class="w-full p-2 border rounded" min="1" value="1"></div>
+                                <div><label class="block font-medium mb-1">Unit Cost</label><input type="number" id="pur_cost" class="w-full p-2 border rounded" min="0"></div>
+                            </div>
+                        </div>
+                    `,
+                    showCancelButton: true, confirmButtonText: 'Save Purchase',
+                    preConfirm: () => {
+                        const qty = Number(document.getElementById('pur_qty').value);
+                        const cost = Number(document.getElementById('pur_cost').value);
+                        if(qty <= 0 || cost < 0) { Swal.showValidationMessage('Invalid quantity or cost'); return false; }
+                        return {
+                            vendorId: document.getElementById('pur_vendor').value,
+                            productId: document.getElementById('pur_prod').value,
+                            qty: qty, cost: cost
+                        };
+                    }
+                }).then(res => {
+                    if(res.isConfirmed) {
+                        const val = res.value;
+                        const total = val.qty * val.cost;
+                        const now = new Date().toISOString();
+                        
+                        // 1. Record Purchase
+                        const purchase = App.DB.insert('purchases', {
+                            date: now, vendorId: val.vendorId, total: total,
+                            items: [{ productId: val.productId, qty: val.qty, cost: val.cost }]
+                        });
+                        
+                        // 2. Add to Inventory
+                        App.DB.insert('inventory_ledger', {
+                            date: now, productId: val.productId, type: 'IN', qty: val.qty, 
+                            refType: 'Purchase', note: `Purchase #${purchase.id}`
+                        });
+                        
+                        // 3. Update Product Cost (Simplistic update to latest purchase price)
+                        App.DB.update('products', val.productId, { purchasePrice: val.cost });
+                        
+                        App.Utils.notify('Purchase recorded successfully');
+                        App.Router.navigate('purchases');
+                    }
+                });
+            }
+        };
+
+        App.Views.Customers = {
+            render: () => {
+                const customers = App.DB.get('customers');
+                const sales = App.DB.get('sales');
+                const headers = ['Name', 'Phone', 'Type', 'Total Spent', 'Actions'];
+                
+                const rows = customers.map(c => {
+                    // Calculate total spent by this customer
+                    const spent = sales.filter(s => s.customerId === c.id).reduce((sum, s) => sum + s.total, 0);
+                    return [
+                        `<div class="font-semibold text-slate-800">${c.name}</div>`,
+                        c.phone || 'N/A',
+                        `<span class="px-2 py-1 bg-slate-100 rounded text-xs">${c.type}</span>`,
+                        `<span class="font-bold text-blue-600">${App.Utils.formatMoney(spent)}</span>`,
+                        `<button class="text-red-600 hover:text-red-800" onclick="App.Views.Customers.delete('${c.id}')"><i class="fa-solid fa-trash"></i></button>`
+                    ];
+                });
+
+                return `
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-semibold text-slate-800">Customer Directory</h2>
+                        <button onclick="App.Views.Customers.add()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                            <i class="fa-solid fa-plus mr-2"></i> Add Customer
+                        </button>
+                    </div>
+                    ${App.UI.renderTable(headers, rows)}
+                `;
+            },
+            add: () => {
+                Swal.fire({
+                    title: 'Add New Customer',
+                    html: `
+                        <div class="text-left space-y-4 text-sm mt-4">
+                            <div><label class="block font-medium mb-1">Full Name</label><input type="text" id="cust_name" class="w-full p-2 border rounded"></div>
+                            <div><label class="block font-medium mb-1">Phone Number</label><input type="text" id="cust_phone" class="w-full p-2 border rounded"></div>
+                            <div><label class="block font-medium mb-1">Customer Type</label>
+                                <select id="cust_type" class="w-full p-2 border rounded"><option>Retail</option><option>Wholesale</option><option>VIP</option></select>
+                            </div>
+                        </div>
+                    `,
+                    showCancelButton: true, confirmButtonText: 'Save',
+                    preConfirm: () => {
+                        const name = document.getElementById('cust_name').value;
+                        if(!name) { Swal.showValidationMessage('Name is required'); return false; }
+                        return { name, phone: document.getElementById('cust_phone').value, type: document.getElementById('cust_type').value };
+                    }
+                }).then(res => {
+                    if(res.isConfirmed) {
+                        App.DB.insert('customers', res.value);
+                        App.Utils.notify('Customer added');
+                        App.Router.navigate('customers');
+                    }
+                });
+            },
+            delete: (id) => {
+                Swal.fire({ title: 'Delete Customer?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33' }).then(res => {
+                    if(res.isConfirmed) {
+                        App.DB.delete('customers', id);
+                        App.Router.navigate('customers');
+                        App.Utils.notify('Customer deleted');
+                    }
+                });
+            }
+        };
+
+        /************************************************************************
+         * BOOTSTRAPPING
+         ************************************************************************/
+        window.onload = () => {
+            App.DB.init(); // Initialize LocalStorage DB with demo data
+            
+            // Clock tick
+            setInterval(() => {
+                document.getElementById('clock').innerText = new Date().toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            }, 1000);
+
+            // Check Session
+            if(sessionStorage.getItem('active_user')) {
+                App.Auth.checkSession();
+            }
+        };
+
+    </script>
+</body>
+</html>
